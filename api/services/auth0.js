@@ -1,12 +1,11 @@
-const AUTH0_DOMAIN = process.env.AUTH0_DOMAIN;
-const AUTH0_MGMT_CLIENT_ID = process.env.AUTH0_MGMT_CLIENT_ID;
-const AUTH0_MGMT_CLIENT_SECRET = process.env.AUTH0_MGMT_CLIENT_SECRET;
+// This version now correctly reads VITE_ prefixed variables to match Vercel's environment.
+const AUTH0_DOMAIN = process.env.VITE_AUTH0_DOMAIN;
+const AUTH0_MGMT_CLIENT_ID = process.env.VITE_AUTH0_MGMT_CLIENT_ID;
+const AUTH0_MGMT_CLIENT_SECRET = process.env.VITE_AUTH0_MGMT_CLIENT_SECRET;
 const AUTH0_TOKEN_CACHE = { token: null, expiresAt: 0 };
 
 const getAuth0MgmtToken = async () => {
-    if (AUTH0_TOKEN_CACHE.token && AUTH0_TOKEN_CACHE.expiresAt > Date.now() + 60000) {
-        return AUTH0_TOKEN_CACHE.token;
-    }
+    if (AUTH0_TOKEN_CACHE.token && AUTH0_TOKEN_CACHE.expiresAt > Date.now() + 60000) return AUTH0_TOKEN_CACHE.token;
     const response = await fetch(`https://${AUTH0_DOMAIN}/oauth/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -23,16 +22,11 @@ const getAuth0MgmtToken = async () => {
     AUTH0_TOKEN_CACHE.expiresAt = Date.now() + (data.expires_in * 1000);
     return AUTH0_TOKEN_CACHE.token;
 };
-
 const mgmtApiCall = async (endpoint, options = {}) => {
     const token = await getAuth0MgmtToken();
     const response = await fetch(`https://${AUTH0_DOMAIN}/api/v2${endpoint}`, {
         ...options,
-        headers: {
-            ...options.headers,
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-        },
+        headers: { ...options.headers, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
     });
     if (!response.ok) {
         if (response.status === 404) return null;
@@ -42,53 +36,45 @@ const mgmtApiCall = async (endpoint, options = {}) => {
     if (response.status === 204) return { success: true };
     return response.json();
 };
-
-const getOrgByName = async (name) => mgmtApiCall(`/organizations/name/${name}`);
-const getOrgConnections = async (id) => mgmtApiCall(`/organizations/${id}/enabled_connections`);
-const createOrganization = async (name, displayName) => mgmtApiCall('/organizations', { method: 'POST', body: JSON.stringify({ name: name.toLowerCase().replace(/\s+/g, '-'), display_name: displayName }) });
+const getOrgByName = (name) => mgmtApiCall(`/organizations/name/${name}`);
+const getOrgConnections = (id) => mgmtApiCall(`/organizations/${id}/enabled_connections`);
+const createOrganization = (name, displayName) => mgmtApiCall('/organizations', { method: 'POST', body: JSON.stringify({ name: name.toLowerCase().replace(/\s+/g, '-'), display_name: displayName }) });
 const findUserByEmail = async (email) => {
-    const defaultConnectionName = process.env.AUTH0_DEFAULT_CONNECTION_NAME;
-    if (!defaultConnectionName) throw new Error("AUTH0_DEFAULT_CONNECTION_NAME is not set in the backend .env file.");
+    const defaultConnectionName = process.env.VITE_AUTH0_DEFAULT_CONNECTION_NAME;
+    if (!defaultConnectionName) throw new Error("VITE_AUTH0_DEFAULT_CONNECTION_NAME is not set.");
     const users = await mgmtApiCall(`/users-by-email?email=${encodeURIComponent(email)}`);
     if (!users || users.length === 0) return null;
     return users.find(user => user.identities.some(identity => identity.connection === defaultConnectionName)) || null;
 };
-const createUser = async (email, password) => {
-    const connectionName = process.env.AUTH0_DEFAULT_CONNECTION_NAME;
-    if (!connectionName) throw new Error("AUTH0_DEFAULT_CONNECTION_NAME is not set in backend .env file.");
+const createUser = (email, password) => {
+    const connectionName = process.env.VITE_AUTH0_DEFAULT_CONNECTION_NAME;
+    if (!connectionName) throw new Error("VITE_AUTH0_DEFAULT_CONNECTION_NAME is not set.");
     return mgmtApiCall('/users', {
         method: 'POST',
-        body: JSON.stringify({
-            email,
-            password,
-            connection: connectionName,
-        }),
+        body: JSON.stringify({ email, password, connection: connectionName }),
     });
 };
-const addMembersToOrganization = async (orgId, userId) => mgmtApiCall(`/organizations/${orgId}/members`, { method: 'POST', body: JSON.stringify({ members: [userId] }) });
-const assignRolesToMember = async (orgId, userId, roles) => mgmtApiCall(`/organizations/${orgId}/members/${userId}/roles`, { method: 'POST', body: JSON.stringify({ roles }) });
-const addConnectionToOrganization = async (orgId, connectionId, showAsButton = true) => {
-    return mgmtApiCall(`/organizations/${orgId}/enabled_connections`, {
-        method: 'POST',
-        body: JSON.stringify({ connection_id: connectionId, assign_membership_on_login: false, show_as_button: showAsButton }),
-    });
+const addMembersToOrganization = (orgId, userId) => mgmtApiCall(`/organizations/${orgId}/members`, { method: 'POST', body: JSON.stringify({ members: [userId] }) });
+const assignRolesToMember = (orgId, userId, roles) => mgmtApiCall(`/organizations/${orgId}/members/${userId}/roles`, { method: 'POST', body: JSON.stringify({ roles }) });
+const createOrganizationInvitation = async (orgId, email) => {
+    const inviterName = process.env.VITE_AUTH0_MGMT_CLIENT_ID;
+    const frontendClientId = process.env.VITE_AUTH0_CLIENT_ID;
+    const adminRoles = process.env.VITE_AUTH0_DEFAULT_ADMIN_ROLES.split(',');
+    if (!frontendClientId) throw new Error("VITE_AUTH0_CLIENT_ID is not set.");
+    const invitationPayload = {
+        inviter: { name: inviterName },
+        invitee: { email },
+        client_id: frontendClientId,
+        roles: (adminRoles.length > 0 && adminRoles[0]) ? adminRoles : [],
+    };
+    return mgmtApiCall(`/organizations/${orgId}/invitations`, { method: 'POST', body: JSON.stringify(invitationPayload) });
 };
+const addConnectionToOrganization = (orgId, connectionId, showAsButton = true) => mgmtApiCall(`/organizations/${orgId}/enabled_connections`, { method: 'POST', body: JSON.stringify({ connection_id: connectionId, assign_membership_on_login: false, show_as_button: showAsButton }) });
 const getInternalAdminConnectionForOrg = async (orgId) => {
-    const internalAdminId = process.env.AUTH0_INTERNAL_ADMIN_CONNECTION_ID;
-    if (!internalAdminId) throw new Error("Internal admin connection ID is not configured on the server.");
+    const internalAdminId = process.env.VITE_AUTH0_INTERNAL_ADMIN_CONNECTION_ID;
+    if (!internalAdminId) throw new Error("VITE_AUTH0_INTERNAL_ADMIN_CONNECTION_ID is not set.");
     const connections = await getOrgConnections(orgId);
     if (!connections) return null;
     return connections.find(c => c.connection_id === internalAdminId) || null;
 };
-
-module.exports = {
-    getOrgByName,
-    getOrgConnections,
-    createOrganization,
-    findUserByEmail,
-    createUser,
-    addMembersToOrganization,
-    assignRolesToMember,
-    addConnectionToOrganization,
-    getInternalAdminConnectionForOrg,
-};
+module.exports = { getOrgByName, getOrgConnections, createOrganization, findUserByEmail, createUser, addMembersToOrganization, assignRolesToMember, createOrganizationInvitation, addConnectionToOrganization, getInternalAdminConnectionForOrg };
