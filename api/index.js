@@ -2,120 +2,47 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
-console.log("[Backend Init] Starting server process...");
-
-const auth0Service = require('./services/auth0');
-console.log("[Backend Init] ✅ Auth0 Service loaded.");
-const fgaService = require('./services/fga');
-console.log("[Backend Init] ✅ FGA Service loaded.");
-const firebaseService = require('./services/firebase');
-console.log("[Backend Init] ✅ Firebase Service loaded.");
-console.log("[Backend Init] All services loaded successfully.");
-
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-console.log("[Backend Init] Express app configured.");
+// --- NEW: Health Check Endpoint ---
+// This endpoint has no dependencies and will always work if the server is running.
+app.get('/api/health', (req, res) => {
+    console.log("[Backend] Health check endpoint was hit!");
+    res.status(200).json({ status: "ok", message: "Backend is running." });
+});
+
+// --- Service Initialization (with better error logging) ---
+let auth0Service, fgaService, firebaseService;
+try {
+    auth0Service = require('./services/auth0');
+    fgaService = require('./services/fga');
+    firebaseService = require('./services/firebase');
+    console.log("[Backend Init] All services loaded successfully.");
+} catch (error) {
+    console.error("!!! CRITICAL ERROR ON INITIALIZATION !!!");
+    console.error(error);
+}
 
 // --- API Endpoints ---
 app.get('/', (req, res) => res.status(200).json({ message: "Hello from the Backend!" }));
 
 // --- Auth0 Management API Routes ---
-app.get('/organization/name/:name', async (req, res) => {
-    try {
-        const data = await auth0Service.getOrgByName(req.params.name);
-        if (!data) return res.status(404).json({ error: `Organization '${req.params.name}' not found.` });
-        res.json(data);
-    } catch (error) {
-        res.status(error.status || 500).json({ error: error.message });
-    }
-});
-
-app.get('/organization/:id/connections', async (req, res) => {
-    try {
-        const data = await auth0Service.getOrgConnections(req.params.id);
-        res.json(data);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.get('/organization/:id/internal-connection', async (req, res) => {
-    try {
-        const connection = await auth0Service.getInternalAdminConnectionForOrg(req.params.id);
-        if (!connection) {
-            return res.status(404).json({ error: "Internal admin connection not enabled for this organization." });
-        }
-        res.json(connection);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
+app.get('/organization/name/:name', async (req, res) => { try { const data = await auth0Service.getOrgByName(req.params.name); if (!data) return res.status(404).json({ error: `Organization '${req.params.name}' not found.` }); res.json(data); } catch (error) { res.status(error.status || 500).json({ error: error.message }); } });
+app.get('/organization/:id/connections', async (req, res) => { try { const data = await auth0Service.getOrgConnections(req.params.id); res.json(data); } catch (error) { res.status(500).json({ error: error.message }); } });
+app.get('/organization/:id/internal-connection', async (req, res) => { try { const connection = await auth0Service.getInternalAdminConnectionForOrg(req.params.id); if (!connection) { return res.status(404).json({ error: "Internal admin connection not enabled for this organization." }); } res.json(connection); } catch (error) { res.status(500).json({ error: error.message }); } });
 
 // --- FGA Routes ---
-app.post('/check', async (req, res) => {
-    const { user, relation, object } = req.body;
-    try {
-        const data = await fgaService.check(user, relation, object);
-        res.json(data);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/read-relations', async (req, res) => {
-    const { user, object } = req.body;
-    try {
-        const data = await fgaService.readRelations(user, object);
-        res.json(data);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-app.post('/write-tuples', async (req, res) => {
-    const { writes, deletes } = req.body;
-    try {
-        const data = await fgaService.write(writes, deletes);
-        res.json(data);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
+app.post('/check', async (req, res) => { const { user, relation, object } = req.body; try { const data = await fgaService.check(user, relation, object); res.json(data); } catch (error) { res.status(500).json({ error: error.message }); } });
+app.post('/read-relations', async (req, res) => { const { user, object } = req.body; try { const data = await fgaService.readRelations(user, object); res.json(data); } catch (error) { res.status(500).json({ error: error.message }); } });
+app.post('/write-tuples', async (req, res) => { const { writes, deletes } = req.body; try { const data = await fgaService.write(writes, deletes); res.json(data); } catch (error) { res.status(500).json({ error: error.message }); } });
 
 // --- Firebase Routes ---
 if (process.env.MESSAGE_BOARD_ENABLED === 'true') {
-    console.log("[Backend Init] Message board feature is ENABLED. Registering Firebase routes...");
-    
-    app.get('/posts/:orgId', async (req, res) => {
-        try {
-            const data = await firebaseService.getPosts(req.params.orgId);
-            res.json(data);
-        } catch (error) {
-            res.status(500).json({ error: error.message });
-        }
-    });
-
-    app.post('/posts/:orgId', async (req, res) => {
-        try {
-            const data = await firebaseService.createPost(req.params.orgId, req.body);
-            res.status(201).json(data);
-        } catch (error) {
-            res.status(500).json({ error: error.message });
-        }
-    });
-
-    app.delete('/posts/:orgId/:postKey', async (req, res) => {
-        try {
-            const data = await firebaseService.deletePost(req.params.orgId, req.params.postKey);
-            res.json(data);
-        } catch (error) {
-            res.status(500).json({ error: error.message });
-        }
-    });
-} else {
-    console.log("[Backend Init] Message board feature is DISABLED. Skipping Firebase routes.");
+    app.get('/posts/:orgId', async (req, res) => { try { const data = await firebaseService.getPosts(req.params.orgId); res.json(data); } catch (error) { res.status(500).json({ error: error.message }); } });
+    app.post('/posts/:orgId', async (req, res) => { try { const data = await firebaseService.createPost(req.params.orgId, req.body); res.status(201).json(data); } catch (error) { res.status(500).json({ error: error.message }); } });
+    app.delete('/posts/:orgId/:postKey', async (req, res) => { try { const data = await firebaseService.deletePost(req.params.orgId, req.params.postKey); res.json(data); } catch (error) { res.status(500).json({ error: error.message }); } });
 }
 
 // --- Sign-Up Route ---
@@ -158,9 +85,5 @@ app.post('/signup', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`✅ Backend API running on port ${PORT}`);
-});
-
+// --- Vercel Export ---
 module.exports = app;
