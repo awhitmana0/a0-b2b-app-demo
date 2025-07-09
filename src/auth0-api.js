@@ -1,8 +1,13 @@
+// This file also calls the backend directly in development.
+
+const isDevelopment = import.meta.env.DEV;
+const backendUrl = isDevelopment ? 'http://localhost:3001' : '';
+
 /**
  * Gets an organization's details by calling our secure backend proxy.
  */
 export const getOrgByName = async (orgName) => {
-    const response = await fetch(`/api/organization/name/${encodeURIComponent(orgName)}`);
+    const response = await fetch(`${backendUrl}/organization/name/${encodeURIComponent(orgName)}`);
     if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to get organization details from the backend.");
@@ -14,7 +19,7 @@ export const getOrgByName = async (orgName) => {
  * Gets an organization's enabled connections by calling our secure backend proxy.
  */
 export const getOrgConnections = async (orgId) => {
-    const response = await fetch(`/api/organization/${orgId}/connections`);
+    const response = await fetch(`${backendUrl}/organization/${orgId}/connections`);
     if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to get organization connections from the backend.");
@@ -26,7 +31,7 @@ export const getOrgConnections = async (orgId) => {
  * Checks for and retrieves the internal admin connection for an org by calling our backend.
  */
 export const getInternalAdminConnection = async (orgId) => {
-    const response = await fetch(`/api/organization/${orgId}/internal-connection`);
+    const response = await fetch(`${backendUrl}/organization/${orgId}/internal-connection`);
     if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to check for internal admin connection.");
