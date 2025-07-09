@@ -1,11 +1,7 @@
-// This file now calls the backend directly in development, bypassing the Vite proxy.
-
-// Vite provides this environment variable. It's `true` during `npm run dev`.
-const isDevelopment = import.meta.env.DEV;
-const backendUrl = isDevelopment ? 'http://localhost:3001' : '';
+// This file calls our own backend, which then uses direct API calls to FGA.
 
 const fgaApiFetch = async (endpoint, body) => {
-    const response = await fetch(`${backendUrl}${endpoint}`, {
+    const response = await fetch(`/api${endpoint}`, { // Always use the relative /api path
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -59,7 +55,7 @@ export const updateUserRole = async (user, object, newRole) => {
             return;
         }
 
-        await fetch(`${backendUrl}/write-tuples`, {
+        await fetch('/api/write-tuples', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
