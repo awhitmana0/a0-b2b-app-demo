@@ -5,13 +5,14 @@ const { v4: uuidv4 } = require('uuid');
 const FIREBASE_DATABASE_URL = process.env.FIREBASE_DATABASE_URL;
 let db;
 
-if (FIREBASE_DATABASE_URL) {
-    const firebaseConfig = { databaseURL: FIREBASE_DATABASE_URL };
-    const firebaseApp = initializeApp(firebaseConfig);
-    db = getDatabase(firebaseApp);
-    console.log("✅ Firebase connection initialized.");
-} else {
-    console.warn("⚠️ Firebase Database URL not found. Message board endpoints will be disabled.");
+if (process.env.MESSAGE_BOARD_ENABLED === 'true') {
+    if (FIREBASE_DATABASE_URL) {
+        const firebaseConfig = { databaseURL: FIREBASE_DATABASE_URL };
+        const firebaseApp = initializeApp(firebaseConfig);
+        db = getDatabase(firebaseApp);
+    } else {
+        console.warn("⚠️ Firebase Database URL not found, but feature is enabled. Firebase calls will fail.");
+    }
 }
 
 const getPosts = async (orgId) => {

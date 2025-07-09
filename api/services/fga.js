@@ -29,23 +29,29 @@ const getFgaToken = async () => {
 const fgaApiCall = async (endpoint, body) => {
     const token = await getFgaToken();
     const url = `https://${FGA_API_HOST}/stores/${FGA_STORE_ID}${endpoint}`;
-    return await fetch(url, {
+    const response = await fetch(url, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     });
+    if (!response.ok && response.status === 400) {
+        return response; // Return the response for special handling of 400 errors
+    }
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `FGA API request failed.`);
+    }
+    return response.json();
 };
 
 const check = async (user, relation, object) => {
-    const response = await fgaApiCall('/check', { tuple_key: { user, relation, object } });
-    if (!response.ok) throw new Error(await response.text());
-    return response.json();
+    const data = await fgaApiCall('/check', { tuple_key: { user, relation, object } });
+    return data;
 };
 
 const readRelations = async (user, object) => {
-    const response = await fgaApiCall('/read', { tuple_key: { user, object } });
-    if (!response.ok) throw new Error(await response.text());
-    return response.json();
+    const data = await fgaApiCall('/read', { tuple_key: { user, object } });
+    return data;
 };
 
 const write = async (writes, deletes) => {
@@ -53,16 +59,16 @@ const write = async (writes, deletes) => {
     if (writes && writes.length > 0) payload.writes = { tuple_keys: writes };
     if (deletes && deletes.length > 0) payload.deletes = { tuple_keys: deletes };
     if (Object.keys(payload).length === 0) throw new Error("Write request must contain writes or deletes.");
-
+    
     const response = await fgaApiCall('/write', payload);
-    if (!response.ok) {
+    if (typeof response.json !== 'function') { // Check if it's the raw response object
         const errorData = await response.json();
         if (errorData.code === 'write_failed_due_to_invalid_input') {
             return { message: "Success (state may have already been correct)." };
         }
         throw new Error(errorData.message || 'FGA Write Failed');
     }
-    return response.json();
+    return response;
 };
 
 module.exports = { check, readRelations, write };

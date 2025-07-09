@@ -53,6 +53,18 @@ const findUserByEmail = async (email) => {
     if (!users || users.length === 0) return null;
     return users.find(user => user.identities.some(identity => identity.connection === defaultConnectionName)) || null;
 };
+const createUser = async (email, password) => {
+    const connectionName = process.env.AUTH0_DEFAULT_CONNECTION_NAME;
+    if (!connectionName) throw new Error("AUTH0_DEFAULT_CONNECTION_NAME is not set in backend .env file.");
+    return mgmtApiCall('/users', {
+        method: 'POST',
+        body: JSON.stringify({
+            email,
+            password,
+            connection: connectionName,
+        }),
+    });
+};
 const addMembersToOrganization = async (orgId, userId) => mgmtApiCall(`/organizations/${orgId}/members`, { method: 'POST', body: JSON.stringify({ members: [userId] }) });
 const assignRolesToMember = async (orgId, userId, roles) => mgmtApiCall(`/organizations/${orgId}/members/${userId}/roles`, { method: 'POST', body: JSON.stringify({ roles }) });
 const addConnectionToOrganization = async (orgId, connectionId, showAsButton = true) => {
@@ -67,20 +79,6 @@ const getInternalAdminConnectionForOrg = async (orgId) => {
     const connections = await getOrgConnections(orgId);
     if (!connections) return null;
     return connections.find(c => c.connection_id === internalAdminId) || null;
-};
-
-const createUser = async (email, password) => {
-    const connectionId = process.env.AUTH0_DEFAULT_CONNECTION_NAME;
-    if (!connectionId) throw new Error("AUTH0_DEFAULT_CONNECTION_NAME is not set in backend .env file.");
-    
-    return mgmtApiCall('/users', {
-        method: 'POST',
-        body: JSON.stringify({
-            email,
-            password,
-            connection: connectionId,
-        }),
-    });
 };
 
 module.exports = {

@@ -2,13 +2,21 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
+console.log("[Backend Init] Starting server process...");
+
 const auth0Service = require('./services/auth0');
+console.log("[Backend Init] ✅ Auth0 Service loaded.");
 const fgaService = require('./services/fga');
+console.log("[Backend Init] ✅ FGA Service loaded.");
 const firebaseService = require('./services/firebase');
+console.log("[Backend Init] ✅ Firebase Service loaded.");
+console.log("[Backend Init] All services loaded successfully.");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+console.log("[Backend Init] Express app configured.");
 
 // --- API Endpoints ---
 app.get('/', (req, res) => res.status(200).json({ message: "Hello from the Backend!" }));
@@ -76,48 +84,9 @@ app.post('/write-tuples', async (req, res) => {
     }
 });
 
-// --- Sign-Up Route ---
-app.post('/signup', async (req, res) => {
-    const { email, orgName, orgCode } = req.body;
-    if (!email || !orgName || !orgCode) {
-        return res.status(400).json({ error: "Email, organization name, and organization code are required." });
-    }
-
-    try {
-        let organization = await auth0Service.getOrgByName(orgCode);
-        if (organization) {
-            return res.status(409).json({ error: `An organization with the code '${orgCode}' already exists.` });
-        }
-
-        organization = await auth0Service.createOrganization(orgCode, orgName);
-        console.log(`[Backend] Created organization: ${organization.id}`);
-
-        const internalAdminConnectionId = process.env.AUTH0_INTERNAL_ADMIN_CONNECTION_ID;
-        if (internalAdminConnectionId) {
-            await auth0Service.addConnectionToOrganization(organization.id, internalAdminConnectionId, false);
-        }
-        const defaultConnectionId = process.env.AUTH0_DEFAULT_CONNECTION_ID;
-        if (defaultConnectionId) {
-            await auth0Service.addConnectionToOrganization(organization.id, defaultConnectionId, true);
-        }
-
-        console.log(`[Backend] Creating invitation for ${email} to join ${organization.id}`);
-        const invitation = await auth0Service.createOrganizationInvitation(organization.id, email);
-        
-        res.status(201).json({
-            message: "Invitation sent successfully.",
-            invitationUrl: invitation.invitation_url,
-        });
-
-    } catch (error) {
-        console.error("[Backend] Sign-up Error:", error);
-        res.status(500).json({ error: error.message || "An unexpected error occurred during sign-up." });
-    }
-});
-
-// --- Conditionally Register Firebase Routes ---
+// --- Firebase Routes ---
 if (process.env.MESSAGE_BOARD_ENABLED === 'true') {
-    console.log("✅ Message board feature is enabled. Registering Firebase routes...");
+    console.log("[Backend Init] Message board feature is ENABLED. Registering Firebase routes...");
     
     app.get('/posts/:orgId', async (req, res) => {
         try {
@@ -146,9 +115,52 @@ if (process.env.MESSAGE_BOARD_ENABLED === 'true') {
         }
     });
 } else {
-    console.log("ℹ️ Message board feature is disabled. Skipping Firebase routes.");
+    console.log("[Backend Init] Message board feature is DISABLED. Skipping Firebase routes.");
 }
 
-// --- Vercel Export ---
-// This line allows Vercel to use your Express app as a serverless function.
+// --- Sign-Up Route ---
+app.post('/signup', async (req, res) => {
+    const { email, orgName, orgCode, password } = req.body;
+    if (!email || !orgName || !orgCode || !password) {
+        return res.status(400).json({ error: "Email, organization name, code, and password are required." });
+    }
+    try {
+        let organization = await auth0Service.getOrgByName(orgCode);
+        if (organization) {
+            return res.status(409).json({ error: `An organization with the code '${orgCode}' already exists.` });
+        }
+        let user = await auth0Service.findUserByEmail(email);
+        if (user) {
+            return res.status(409).json({ error: `A user with the email '${email}' already exists.` });
+        }
+        organization = await auth0Service.createOrganization(orgCode, orgName);
+        const internalAdminConnectionId = process.env.AUTH0_INTERNAL_ADMIN_CONNECTION_ID;
+        if (internalAdminConnectionId) {
+            await auth0Service.addConnectionToOrganization(organization.id, internalAdminConnectionId, false);
+        }
+        const defaultConnectionId = process.env.AUTH0_DEFAULT_CONNECTION_ID;
+        if (defaultConnectionId) {
+            await auth0Service.addConnectionToOrganization(organization.id, defaultConnectionId, true);
+        }
+        user = await auth0Service.createUser(email, password);
+        await auth0Service.addMembersToOrganization(organization.id, user.user_id);
+        const adminRoles = process.env.AUTH0_DEFAULT_ADMIN_ROLES.split(',');
+        if (adminRoles.length > 0 && adminRoles[0]) {
+            await auth0Service.assignRolesToMember(organization.id, user.user_id, adminRoles);
+        }
+        res.status(201).json({
+            message: "Sign-up process completed successfully. Please log in.",
+            organizationId: organization.id,
+        });
+    } catch (error) {
+        console.error("[Backend] Sign-up Error:", error);
+        res.status(500).json({ error: error.message || "An unexpected error occurred during sign-up." });
+    }
+});
+
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`✅ Backend API running on port ${PORT}`);
+});
+
 module.exports = app;
