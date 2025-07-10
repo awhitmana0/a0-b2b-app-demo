@@ -1,10 +1,16 @@
-const express = require('express');
-const cors = require('cors');
-// --- CORRECTED: Explicitly load the .env file from the project root ---
-require('dotenv').config({ path: '../.env' });
+// Only load .env file in local development, not on Vercel
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config({ path: './.env' });
+}
 
 console.log("[Backend Init] Starting server process...");
 
+const express = require('express');
+const cors = require('cors');
+
+console.log("[Backend Init] Core modules loaded.");
+
+console.log("[Backend Init] Loading services...");
 const auth0Service = require('./services/auth0');
 console.log("[Backend Init] ✅ Auth0 Service loaded.");
 const fgaService = require('./services/fga');
@@ -22,7 +28,6 @@ console.log("[Backend Init] Express app configured.");
 // --- API Endpoints ---
 app.get('/', (req, res) => res.status(200).json({ message: "Hello from the Backend!" }));
 
-// --- RESTORED: Health Check Endpoint ---
 app.get('/health', (req, res) => {
     console.log("[Backend] Health check endpoint was hit!");
     res.status(200).json({ status: "ok", message: "Backend is running." });
@@ -88,7 +93,7 @@ app.post('/signup', async (req, res) => {
     }
 });
 
-// --- Start server only when run directly ---
+// --- Start server only when run directly for local development ---
 if (require.main === module) {
     const PORT = process.env.PORT || 3001;
     app.listen(PORT, () => {
@@ -96,4 +101,5 @@ if (require.main === module) {
     });
 }
 
+// --- Vercel Export ---
 module.exports = app;
