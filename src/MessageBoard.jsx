@@ -4,8 +4,14 @@ import { checkPermission, writeTuples } from './fga-api';
 import { TEXT, STYLES, FEATURES, ICONS } from './ui-config.jsx';
 
 // --- Reusable UI Components (Copied for this component's use) ---
-const Button = ({ children, className = '', ...props }) => ( <button className={`inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${className}`} {...props}>{children}</button> );
-const Input = ({ className = '', ...props }) => ( <input className={`flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`} {...props} /> );
+const Button = ({ children, className = '', ...props }) => (
+    <button className={`inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${className}`} {...props}>
+        {children}
+    </button>
+);
+const Input = ({ className = '', ...props }) => (
+    <input className={`flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`} {...props} />
+);
 
 const Dialog = ({ isOpen, onCancel, onConfirm, title, children, confirmText = "Confirm", confirmStyle = STYLES.primaryButton }) => {
     if (!isOpen) return null;
@@ -39,10 +45,12 @@ export const MessageBoard = ({ user, organizationId, permissions, onBack }) => {
 
     const checkDeletePermissions = useCallback(async (fetchedPosts) => {
         if (!FEATURES.fga) {
-            return fetchedPosts.map(p => ({ ...p, canDelete: true }));
+            // If FGA is not enabled, assume user can delete their own posts for demo purposes
+            return fetchedPosts.map(p => ({ ...p, canDelete: p.author === user.email }));
         }
         const userIdentifier = `user:${user.sub}`;
         const checks = fetchedPosts.map(post => 
+            // FGA check for 'can_delete' on 'post:post_id'
             checkPermission(userIdentifier, 'can_delete', `post:${post.post_id}`)
         );
         const results = await Promise.all(checks);
@@ -50,7 +58,7 @@ export const MessageBoard = ({ user, organizationId, permissions, onBack }) => {
             ...post,
             canDelete: results[index],
         }));
-    }, [user.sub]);
+    }, [user.sub, user.email]); // Added user.email to dependencies for canDelete fallback
 
     const fetchPosts = useCallback(async () => {
         setIsLoading(true);
@@ -61,6 +69,7 @@ export const MessageBoard = ({ user, organizationId, permissions, onBack }) => {
             postsWithPerms.sort((a, b) => b.date_posted - a.date_posted);
             setPosts(postsWithPerms);
         } catch (err) {
+            console.error("Error fetching posts:", err);
             setError("Could not load posts.");
         } finally {
             setIsLoading(false);
@@ -75,16 +84,23 @@ export const MessageBoard = ({ user, organizationId, permissions, onBack }) => {
         e.preventDefault();
         if (!newPostContent.trim()) return;
         try {
-            const newPostId = await createPost(organizationId, { author: user.email, content: newPostContent });
+            // 1. Create the post in Firebase. The response 'newPost' will contain 'post_id' (the UUID)
+            const newPost = await createPost(organizationId, { author: user.email, content: newPostContent });
+            
+            // 2. If FGA is enabled, write the FGA tuples for the new post
             if (FEATURES.fga) {
+                // Use newPost.post_id (the UUID) as the unique identifier for the FGA 'post' object
                 await writeTuples([
-                    { user: `user:${user.sub}`, relation: 'owner', object: `post:${newPostId}` },
-                    { user: `organization:${organizationId}`, relation: 'parent', object: `post:${newPostId}` }
+                    { user: `user:${user.sub}`, relation: 'owner', object: `post:${newPost.post_id}` },
+                    { user: `organization:${organizationId}`, relation: 'parent', object: `post:${newPost.post_id}` }
                 ]);
             }
+            
+            // Clear the input and refetch posts to update the UI
             setNewPostContent('');
             fetchPosts();
         } catch (err) {
+            console.error("Error submitting post or writing FGA tuples:", err);
             setError("Failed to submit post.");
         }
     };
@@ -100,9 +116,17 @@ export const MessageBoard = ({ user, organizationId, permissions, onBack }) => {
     const handleConfirmDelete = async () => {
         if (!postToDelete) return;
         try {
+            // Delete the post from Firebase
             await deletePost(organizationId, postToDelete);
-            fetchPosts();
+            
+            // Note: FGA tuples for deleted posts are typically handled by a webhook
+            // or a background job that listens for Firebase deletions and updates FGA.
+            // For this demo, we're not explicitly deleting FGA tuples here on frontend,
+            // assuming the FGA model's `can_delete` check will prevent access to non-existent posts.
+            
+            fetchPosts(); // Refresh the posts list
         } catch (err) {
+            console.error("Error deleting post:", err);
             setError("Failed to delete post.");
         } finally {
             // Close the dialog and clear the state
