@@ -54,6 +54,7 @@ The FGA and Firebase Message Board features are controlled by feature flags and 
 
 ---
 
+
 ## Tech Stack
 
 - **Frontend**: React, Vite, Tailwind CSS
