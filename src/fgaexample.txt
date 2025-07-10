@@ -7,15 +7,15 @@ const { CredentialsMethod, OpenFgaClient } = require('@openfga/sdk'); // OR impo
 
 const fgaClient = new OpenFgaClient({
     apiUrl: 'https://api.us1.fga.dev',
-    storeId: '01JYN40ZY82EECZPPQ3D2M3WMN',
+    storeId: 'XXXXX',
     // authorizationModelId: 'YOUR_MODEL_ID', // Optionally, you can specify a model id to target, which can improve latency
     credentials: {
       method: CredentialsMethod.ClientCredentials,
       config: {
         apiTokenIssuer: "auth.fga.dev",
         apiAudience: 'https://api.us1.fga.dev/',
-        clientId: '4U6sffGJf4LS3P6gqMlbYs7jYgHZSBWS',
-        clientSecret: 'cltjSy0izBf9PjaxDUuvJXijYuTDeQJqB-q49FllNw9v_NCop5x0fT0vYWFqtV4x',
+        clientId: 'XXXXX',
+        clientSecret: 'XXXXXXX',
       },
     }
 });
