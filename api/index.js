@@ -1,9 +1,32 @@
 // Only load .env file in local development, not on Vercel
 if (process.env.NODE_ENV !== 'production') {
-    require('dotenv').config({ path: './.env' });
+    // Explicitly point to the .env file in the *root* directory for local dev
+    require('dotenv').config({ path: '../.env' });
 }
 
 console.log("[Backend Init] Starting server process...");
+
+// --- NEW: Comprehensive Environment Variable Debugging ---
+console.log("--- [Backend Init] Checking Environment Variables ---");
+const variables = [
+    'VITE_AUTH0_DOMAIN', 'VITE_AUTH0_CLIENT_ID', 'VITE_AUTH0_AUDIENCE',
+    'VITE_AUTH0_MGMT_CLIENT_ID', 'VITE_AUTH0_MGMT_CLIENT_SECRET',
+    'VITE_FGA_API_HOST', 'VITE_FGA_ISSUER', 'VITE_FGA_STORE_ID',
+    'VITE_FGA_CLIENT_ID', 'VITE_FGA_CLIENT_SECRET',
+    'VITE_AUTH0_DEFAULT_CONNECTION_ID', 'VITE_AUTH0_DEFAULT_CONNECTION_NAME',
+    'VITE_AUTH0_INTERNAL_ADMIN_CONNECTION_ID', 'VITE_AUTH0_DEFAULT_ADMIN_ROLES',
+    'VITE_FIREBASE_DATABASE_URL', 'VITE_MESSAGE_BOARD_ENABLED'
+];
+variables.forEach(v => {
+    // For secrets, we just check for presence, we don't print the value.
+    if (v.includes('SECRET')) {
+        console.log(`${v}: ${process.env[v] ? 'Loaded ✅' : '!!! NOT FOUND !!!'}`);
+    } else {
+        console.log(`${v}: ${process.env[v] || '!!! NOT FOUND !!!'}`);
+    }
+});
+console.log("-------------------------------------------------");
+
 
 const express = require('express');
 const cors = require('cors');
