@@ -1,32 +1,32 @@
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config();
+// --- CORRECTED: Explicitly load the .env file from the project root ---
+require('dotenv').config({ path: '../.env' });
+
+console.log("[Backend Init] Starting server process...");
+
+const auth0Service = require('./services/auth0');
+console.log("[Backend Init] ✅ Auth0 Service loaded.");
+const fgaService = require('./services/fga');
+console.log("[Backend Init] ✅ FGA Service loaded.");
+const firebaseService = require('./services/firebase');
+console.log("[Backend Init] ✅ Firebase Service loaded.");
+console.log("[Backend Init] All services loaded successfully.");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- NEW: Health Check Endpoint ---
-// This endpoint has no dependencies and will always work if the server is running.
-app.get('/api/health', (req, res) => {
-    console.log("[Backend] Health check endpoint was hit!");
-    res.status(200).json({ status: "ok", message: "Backend is running." });
-});
-
-// --- Service Initialization (with better error logging) ---
-let auth0Service, fgaService, firebaseService;
-try {
-    auth0Service = require('./services/auth0');
-    fgaService = require('./services/fga');
-    firebaseService = require('./services/firebase');
-    console.log("[Backend Init] All services loaded successfully.");
-} catch (error) {
-    console.error("!!! CRITICAL ERROR ON INITIALIZATION !!!");
-    console.error(error);
-}
+console.log("[Backend Init] Express app configured.");
 
 // --- API Endpoints ---
 app.get('/', (req, res) => res.status(200).json({ message: "Hello from the Backend!" }));
+
+// --- RESTORED: Health Check Endpoint ---
+app.get('/health', (req, res) => {
+    console.log("[Backend] Health check endpoint was hit!");
+    res.status(200).json({ status: "ok", message: "Backend is running." });
+});
 
 // --- Auth0 Management API Routes ---
 app.get('/organization/name/:name', async (req, res) => { try { const data = await auth0Service.getOrgByName(req.params.name); if (!data) return res.status(404).json({ error: `Organization '${req.params.name}' not found.` }); res.json(data); } catch (error) { res.status(error.status || 500).json({ error: error.message }); } });
@@ -39,10 +39,13 @@ app.post('/read-relations', async (req, res) => { const { user, object } = req.b
 app.post('/write-tuples', async (req, res) => { const { writes, deletes } = req.body; try { const data = await fgaService.write(writes, deletes); res.json(data); } catch (error) { res.status(500).json({ error: error.message }); } });
 
 // --- Firebase Routes ---
-if (process.env.MESSAGE_BOARD_ENABLED === 'true') {
+if (process.env.VITE_MESSAGE_BOARD_ENABLED === 'true') {
+    console.log("[Backend Init] Message board feature is ENABLED. Registering Firebase routes...");
     app.get('/posts/:orgId', async (req, res) => { try { const data = await firebaseService.getPosts(req.params.orgId); res.json(data); } catch (error) { res.status(500).json({ error: error.message }); } });
     app.post('/posts/:orgId', async (req, res) => { try { const data = await firebaseService.createPost(req.params.orgId, req.body); res.status(201).json(data); } catch (error) { res.status(500).json({ error: error.message }); } });
     app.delete('/posts/:orgId/:postKey', async (req, res) => { try { const data = await firebaseService.deletePost(req.params.orgId, req.params.postKey); res.json(data); } catch (error) { res.status(500).json({ error: error.message }); } });
+} else {
+    console.log("[Backend Init] Message board feature is DISABLED. Skipping Firebase routes.");
 }
 
 // --- Sign-Up Route ---
@@ -61,17 +64,17 @@ app.post('/signup', async (req, res) => {
             return res.status(409).json({ error: `A user with the email '${email}' already exists.` });
         }
         organization = await auth0Service.createOrganization(orgCode, orgName);
-        const internalAdminConnectionId = process.env.AUTH0_INTERNAL_ADMIN_CONNECTION_ID;
+        const internalAdminConnectionId = process.env.VITE_AUTH0_INTERNAL_ADMIN_CONNECTION_ID;
         if (internalAdminConnectionId) {
             await auth0Service.addConnectionToOrganization(organization.id, internalAdminConnectionId, false);
         }
-        const defaultConnectionId = process.env.AUTH0_DEFAULT_CONNECTION_ID;
+        const defaultConnectionId = process.env.VITE_AUTH0_DEFAULT_CONNECTION_ID;
         if (defaultConnectionId) {
             await auth0Service.addConnectionToOrganization(organization.id, defaultConnectionId, true);
         }
         user = await auth0Service.createUser(email, password);
         await auth0Service.addMembersToOrganization(organization.id, user.user_id);
-        const adminRoles = process.env.AUTH0_DEFAULT_ADMIN_ROLES.split(',');
+        const adminRoles = process.env.VITE_AUTH0_DEFAULT_ADMIN_ROLES.split(',');
         if (adminRoles.length > 0 && adminRoles[0]) {
             await auth0Service.assignRolesToMember(organization.id, user.user_id, adminRoles);
         }
@@ -85,5 +88,12 @@ app.post('/signup', async (req, res) => {
     }
 });
 
-// --- Vercel Export ---
+// --- Start server only when run directly ---
+if (require.main === module) {
+    const PORT = process.env.PORT || 3001;
+    app.listen(PORT, () => {
+      console.log(`✅ Backend API running on port ${PORT}`);
+    });
+}
+
 module.exports = app;

@@ -1,4 +1,3 @@
-// This version now correctly reads VITE_ prefixed variables to match Vercel's environment.
 const AUTH0_DOMAIN = process.env.VITE_AUTH0_DOMAIN;
 const AUTH0_MGMT_CLIENT_ID = process.env.VITE_AUTH0_MGMT_CLIENT_ID;
 const AUTH0_MGMT_CLIENT_SECRET = process.env.VITE_AUTH0_MGMT_CLIENT_SECRET;
