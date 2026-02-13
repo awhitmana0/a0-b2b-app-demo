@@ -102,6 +102,10 @@ export const ProfilePage = ({ initialView }) => {
         deleteCookie('lastLoginInfo');
         logout({ logoutParams: { returnTo: window.location.origin } });
     };
+
+    const handleBackToLanding = () => {
+        window.location.href = '/';
+    };
     
     if (FEATURES.messageBoard && initialView === 'messageBoard') {
         if (!permissions) {
@@ -124,10 +128,25 @@ export const ProfilePage = ({ initialView }) => {
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
             <div className="w-full max-w-2xl bg-white p-8 rounded-xl shadow-md border">
+                {/* Back to Landing Button */}
+                <div className="mb-6">
+                    <Button onClick={handleBackToLanding} className="text-gray-600 hover:text-gray-900">
+                        {TEXT.backToDemoButton}
+                    </Button>
+                </div>
+
                 <div className="flex flex-col items-center text-center">
                     <img src={user.picture} alt={user.name} className="w-24 h-24 rounded-full mb-4" />
                     <h1 className="text-3xl font-bold text-gray-900">{TEXT.welcome}, {user.name}</h1>
                     <p className="text-gray-600 mt-1">{user.email}</p>
+
+                    {/* Display which flow was used */}
+                    {auth0Config.flow && auth0Config.flow !== 'custom' && (
+                        <div className="mt-4 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
+                            Login Flow: {auth0Config.flow}
+                        </div>
+                    )}
+
                     <div className="mt-6 flex flex-col sm:flex-row flex-wrap justify-center gap-4">
                         {FEATURES.messageBoard && organizationId && permissions && !permissions.isBanned && (
                             <button onClick={() => navigate('/message-board')} className={`inline-flex items-center justify-center rounded-md text-sm font-medium w-full sm:w-auto px-6 py-2 ${STYLES.primaryButton}`}>

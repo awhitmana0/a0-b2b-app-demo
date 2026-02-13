@@ -174,12 +174,23 @@ export const LoginPage = () => {
         }
     ];
 
+    const handleBackToLanding = () => {
+        window.location.href = '/';
+    };
+
     return (
         <>
             <Dialog isOpen={isConfirmDialogOpen} onCancel={() => setIsConfirmDialogOpen(false)} onConfirm={handleConfirmLogin} title={TEXT.confirmDialogTitle}><p className="text-gray-600 mb-4">{TEXT.confirmDialogBody}</p><pre className={STYLES.tokenBox}>{JSON.stringify(loginParamsToConfirm, null, 2)}</pre></Dialog>
             <Dialog isOpen={isInfoDialogOpen} onCancel={() => setIsInfoDialogOpen(false)} title={TEXT.infoDialogTitle} showConfirmButton={false}><p>{TEXT.infoDialogBody}</p></Dialog>
             <div className="min-h-screen bg-white text-gray-800 font-sans">
                 <main className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-16 sm:pt-24 pb-16">
+                    {/* Back to Landing Button */}
+                    <div className="max-w-4xl mx-auto mb-6">
+                        <Button onClick={handleBackToLanding} className="text-gray-600 hover:text-gray-900">
+                            {TEXT.backToDemoButton}
+                        </Button>
+                    </div>
+
                     <div className="max-w-4xl mx-auto text-center">
                         <div className="flex justify-center items-center space-x-6 mb-8">{ICONS.HeaderShield}{ICONS.HeaderBriefcase}{ICONS.HeaderZap}{ICONS.HeaderHeart}</div>
                         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-gray-900">{TEXT.mainTitle}</h1>

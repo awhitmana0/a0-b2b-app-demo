@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Briefcase, Zap, Heart, Key, ArrowRight, ChevronDown, X, HelpCircle, Trash2 } from 'lucide-react';
+import { Shield, Briefcase, Zap, Heart, Key, ArrowRight, ChevronDown, X, HelpCircle, Trash2, User, Building2, Compass } from 'lucide-react';
 
 // --- ICONS ---
 export const ICONS = {
@@ -13,6 +13,10 @@ export const ICONS = {
   DialogClose: <X className="h-4 w-4" />,
   InfoHelp: <HelpCircle className="h-5 w-5" />,
   DeletePost: <Trash2 className="h-4 w-4" />,
+  FlowCredentials: <User className="h-12 w-12 text-blue-600" />,
+  FlowOrganization: <Building2 className="h-12 w-12 text-purple-600" />,
+  FlowNoPrompt: <Zap className="h-12 w-12 text-green-600" />,
+  FlowCustom: <Compass className="h-12 w-12 text-orange-600" />,
 };
 
 // --- TEXT CONTENT ---
@@ -62,6 +66,30 @@ export const TEXT = {
   errorNoDbConnection: 'No Username/Password connection found for this organization.',
   errorInvalidFlow: 'Invalid login flow selected.',
   errorMissingSsoId: 'Please enter a customer SSO ID.',
+
+  // Landing Page
+  landingTitle: "Auth0 Organization Login Flows Demo",
+  landingSubtitle: "Choose a login flow to demonstrate different Auth0 organization authentication patterns.",
+  flowCredentialsTitle: "Identifier First Login",
+  flowCredentialsDesc: "Users enter their email/username first. Auth0 determines their organization automatically.",
+  flowOrganizationTitle: "Organization Prompt",
+  flowOrganizationDesc: "Users are prompted to select their organization before entering credentials.",
+  flowNoPromptTitle: "Direct Login (No Prompt)",
+  flowNoPromptDesc: "Application provides all parameters. Users go straight to login screen.",
+  flowCustomTitle: "Interactive Walkthrough",
+  flowCustomDesc: "Explore different login scenarios with our step-by-step demonstration.",
+  backToDemoButton: "← Back to Demo Selection",
+  tryThisFlowButton: "Try This Flow",
+
+  // Flow-specific Login Pages
+  promptCredentialsLoginTitle: "Identifier First Login",
+  promptCredentialsLoginDesc: "Click the button below to start the login process. You'll be prompted to enter your email or username first.",
+  promptOrganizationLoginTitle: "Organization Prompt Login",
+  promptOrganizationLoginDesc: "Click the button below to start the login process. You'll be prompted to select your organization first.",
+  noPromptLoginTitle: "Direct Login",
+  noPromptLoginDesc: "Enter your organization ID below to proceed directly to the login screen.",
+  noPromptOrgLabel: "Organization ID or Code",
+  noPromptOrgPlaceholder: "e.g., org_abc123 or acme-corp",
 };
 
 // --- STYLING & COLORS ---
