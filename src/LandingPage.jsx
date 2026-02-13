@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useAuth0 } from '@auth0/auth0-react';
 import { ICONS, TEXT, STYLES } from './ui-config.jsx';
 import { getOrgByName } from './auth0-api';
+import { generatePKCE } from './pkce-helper';
 import { Settings, X, Info, ExternalLink } from 'lucide-react';
 
 const Button = ({ children, className = '', ...props }) => (
@@ -178,7 +178,6 @@ export const LandingPage = () => {
     const [currentFlow, setCurrentFlow] = useState(null);
     const [error, setError] = useState('');
 
-    // Get Auth0 config from env
     const auth0Domain = import.meta.env.VITE_AUTH0_DOMAIN;
     const auth0Audience = import.meta.env.VITE_AUTH0_AUDIENCE;
     const clientIds = {
@@ -186,6 +185,7 @@ export const LandingPage = () => {
         'organization': import.meta.env.VITE_AUTH0_CLIENT_ID_PROMPT_ORG,
         'no-prompt': import.meta.env.VITE_AUTH0_CLIENT_ID_NO_PROMPT,
     };
+
 
     // Get defaults from env or localStorage
     const getStoredOrgCode = () => localStorage.getItem('noPromptOrgCode') || import.meta.env.VITE_NO_PROMPT_DEFAULT_ORG_CODE || 'alpha';
@@ -196,26 +196,29 @@ export const LandingPage = () => {
     const [tempOrgCode, setTempOrgCode] = useState(orgCode);
     const [tempConnection, setTempConnection] = useState(connectionName);
 
-    const handleDirectFlowLogin = (flow) => {
-        // Store flow in localStorage for persistence across auth redirect
-        localStorage.setItem('auth0_flow', flow);
-
+    const handleDirectFlowLogin = async (flow) => {
         const clientId = clientIds[flow];
-        const redirectUri = window.location.origin;
+        const redirectUri = `${window.location.origin}/success/${flow}`;
 
-        // Build Auth0 authorization URL manually
+        // Generate PKCE
+        const { verifier, challenge } = await generatePKCE();
+
+        // Store verifier for later token exchange
+        sessionStorage.setItem(`pkce_verifier_${flow}`, verifier);
+
+        // Build Auth0 authorization URL
         const authUrl = new URL(`https://${auth0Domain}/authorize`);
         authUrl.searchParams.set('client_id', clientId);
         authUrl.searchParams.set('redirect_uri', redirectUri);
         authUrl.searchParams.set('response_type', 'code');
         authUrl.searchParams.set('scope', 'openid profile email');
+        authUrl.searchParams.set('code_challenge', challenge);
+        authUrl.searchParams.set('code_challenge_method', 'S256');
         if (auth0Audience) {
             authUrl.searchParams.set('audience', auth0Audience);
         }
 
-        console.log('[LandingPage] Redirecting directly to Auth0:', authUrl.toString());
-
-        // Direct redirect to Auth0 - no intermediate page!
+        console.log('[LandingPage] Redirecting to Auth0 with PKCE');
         window.location.href = authUrl.toString();
     };
 
@@ -240,35 +243,34 @@ export const LandingPage = () => {
                 console.log('[LandingPage] Using organization ID:', orgId);
             }
 
-            // Store login details
-            localStorage.setItem('pendingLoginDetails', JSON.stringify({
-                ssoId: orgCode.trim(),
-                loginFlow: 'no-prompt'
-            }));
-
             const clientId = clientIds['no-prompt'];
-            const redirectUri = window.location.origin;
+            const redirectUri = `${window.location.origin}/success/no-prompt`;
 
-            // Build Auth0 authorization URL manually with organization
+            // Generate PKCE
+            const { verifier, challenge } = await generatePKCE();
+
+            // Store verifier for later token exchange
+            sessionStorage.setItem('pkce_verifier_no-prompt', verifier);
+
+            // Build Auth0 authorization URL
             const authUrl = new URL(`https://${auth0Domain}/authorize`);
             authUrl.searchParams.set('client_id', clientId);
             authUrl.searchParams.set('redirect_uri', redirectUri);
             authUrl.searchParams.set('response_type', 'code');
             authUrl.searchParams.set('scope', 'openid profile email');
+            authUrl.searchParams.set('code_challenge', challenge);
+            authUrl.searchParams.set('code_challenge_method', 'S256');
             authUrl.searchParams.set('organization', orgId);
 
             if (withConnection && connectionName.trim()) {
                 authUrl.searchParams.set('connection', connectionName.trim());
-                console.log('[LandingPage] Including connection:', connectionName.trim());
             }
 
             if (auth0Audience) {
                 authUrl.searchParams.set('audience', auth0Audience);
             }
 
-            console.log('[LandingPage] Redirecting directly to Auth0:', authUrl.toString());
-
-            // Direct redirect to Auth0 - no intermediate page!
+            console.log('[LandingPage] Redirecting to Auth0 with PKCE');
             window.location.href = authUrl.toString();
         } catch (err) {
             console.error('[LandingPage] Error during login:', err);

@@ -1,10 +1,8 @@
-// Read flow from URL query parameter
-const getFlowFromURL = () => {
-  const params = new URLSearchParams(window.location.search);
-  return params.get('flow') || 'custom'; // default to custom walkthrough
-};
+// Detect flow from URL parameter
+const params = new URLSearchParams(window.location.search);
+const flow = params.get('flow') || 'custom';
 
-// Map flow names to client IDs
+// Map flow to client_id
 const getClientIdForFlow = (flow) => {
   const clientIds = {
     'credentials': import.meta.env.VITE_AUTH0_CLIENT_ID_PROMPT_CREDENTIALS,
@@ -15,11 +13,9 @@ const getClientIdForFlow = (flow) => {
   return clientIds[flow] || clientIds['custom'];
 };
 
-const currentFlow = getFlowFromURL();
-
 export const auth0Config = {
   domain: import.meta.env.VITE_AUTH0_DOMAIN,
-  clientId: getClientIdForFlow(currentFlow),
+  clientId: getClientIdForFlow(flow),
   audience: import.meta.env.VITE_AUTH0_AUDIENCE,
-  flow: currentFlow,
+  flow: flow,
 };
